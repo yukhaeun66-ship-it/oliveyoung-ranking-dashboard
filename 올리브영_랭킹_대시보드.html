@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>올리브영 랭킹 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --green: #1A9E5C;
+      --green-light: #E8F7EF;
+      --green-mid: #2EB874;
+      --pink: #FF6B9D;
+      --pink-light: #FFF0F6;
+      --up: #E53E3E;
+      --down: #3182CE;
+      --new: #D69E2E;
+      --bg: #F4F6F8;
+      --card: #FFFFFF;
+      --text: #1A202C;
+      --muted: #718096;
+      --border: #E2E8F0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Malgun Gothic', BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, #1A9E5C 0%, #0F6B3E 100%);
+      color: white;
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(26,158,92,0.3);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-logo { font-size: 26px; }
+    .header-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .header-sub { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+    .btn-refresh {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,0.3); }
+
+    /* CATEGORY TABS */
+    .categories {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .categories::-webkit-scrollbar { display: none; }
+    .tab {
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--green); }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
+
+    /* MAIN LAYOUT */
+    .main { max-width: 1200px; margin: 0 auto; padding: 24px 28px; }
+
+    /* STATS ROW */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 700; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-up { color: var(--up); }
+    .stat-down { color: var(--down); }
+    .stat-new { color: var(--new); }
+    .stat-total { color: var(--green); }
+
+    /* PODIUM */
+    .podium-section { margin-bottom: 24px; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .podium {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+    }
+    .podium-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 20px 16px;
+      text-align: center;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      transition: transform 0.2s;
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+    }
+    .podium-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+    .podium-card.rank-1 { border-top: 3px solid #F6C90E; }
+    .podium-card.rank-2 { border-top: 3px solid #A0ADB8; }
+    .podium-card.rank-3 { border-top: 3px solid #CD7F32; }
+    .podium-medal { font-size: 28px; margin-bottom: 8px; }
+    .podium-rank { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 6px; }
+    .podium-brand { font-size: 12px; color: var(--green); font-weight: 600; margin-bottom: 4px; }
+    .podium-name { font-size: 14px; font-weight: 700; line-height: 1.4; margin-bottom: 8px; color: var(--text); }
+    .podium-price { font-size: 15px; font-weight: 700; color: var(--text); }
+    .podium-change { font-size: 12px; margin-top: 6px; }
+    .podium-bg-1 { background: linear-gradient(160deg, #FFFBEA 0%, #FFF 60%); }
+    .podium-bg-2 { background: linear-gradient(160deg, #F7FAFC 0%, #FFF 60%); }
+    .podium-bg-3 { background: linear-gradient(160deg, #FFF5F0 0%, #FFF 60%); }
+
+    /* RANKING TABLE */
+    .table-section { margin-bottom: 24px; }
+    .ranking-table {
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    .table-header {
+      display: grid;
+      grid-template-columns: 52px 44px 1fr 110px 100px 70px;
+      padding: 12px 20px;
+      background: #F7FAFC;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .table-row {
+      display: grid;
+      grid-template-columns: 52px 44px 1fr 110px 100px 70px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      transition: background 0.15s;
+    }
+    .table-row:last-child { border-bottom: none; }
+    .table-row:hover { background: #F8FFFE; }
+    .table-row.hidden { display: none; }
+
+    .rank-num { font-size: 20px; font-weight: 800; color: var(--text); }
+    .rank-num.top3 { color: var(--green); }
+
+    .change-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .change-up { background: #FFF5F5; color: var(--up); }
+    .change-down { background: #EBF8FF; color: var(--down); }
+    .change-same { background: #F7FAFC; color: var(--muted); }
+    .change-new { background: #FFFFF0; color: var(--new); }
+
+    .product-info { display: flex; flex-direction: column; gap: 3px; padding-right: 10px; }
+    .product-brand { font-size: 11px; color: var(--green); font-weight: 600; }
+    .product-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.35; }
+    .product-cat { font-size: 11px; color: var(--muted); }
+    .product-price { font-size: 15px; font-weight: 700; }
+
+    /* SPARKLINE */
+    .sparkline-wrap { display: flex; align-items: center; justify-content: flex-end; }
+    .sparkline-svg { width: 90px; height: 32px; }
+
+    /* TREND CHART */
+    .trend-section { margin-bottom: 24px; }
+    .trend-card {
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      padding: 24px;
+    }
+    .trend-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .trend-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .trend-btn.active { background: var(--green); color: white; border-color: var(--green); }
+    .chart-container { position: relative; height: 320px; }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      margin-top: 10px;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .main { padding: 16px; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .podium { grid-template-columns: 1fr; }
+      .table-header, .table-row {
+        grid-template-columns: 44px 40px 1fr 80px 0 60px;
+      }
+      .product-cat { display: none; }
+      .sparkline-wrap { display: none; }
+      .header { padding: 14px 16px; }
+      .categories { padding: 0 8px; }
+      .product-thumb { width: 42px !important; height: 42px !important; }
+    }
+
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .tag-new {
+      display: inline-block;
+      background: var(--new);
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    .date-label { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+    /* PRODUCT THUMBNAIL */
+    .product-thumb {
+      width: 54px; height: 54px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      font-size: 17px; font-weight: 800; color: white;
+      letter-spacing: -1px;
+    }
+    .product-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      position: absolute; top: 0; left: 0;
+      border-radius: 10px;
+    }
+    .product-cell { display: flex; align-items: center; gap: 12px; padding-right: 8px; }
+
+    /* PODIUM THUMBNAIL */
+    .podium-thumb {
+      width: 88px; height: 88px;
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 0 auto 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 900; color: white;
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .podium-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      position: absolute; top: 0; left: 0;
+    }
+
+    /* 바로가기 BUTTON */
+    .btn-goto {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 6px 11px;
+      border: 1.5px solid var(--green);
+      color: var(--green);
+      border-radius: 16px;
+      font-size: 11px; font-weight: 700;
+      text-decoration: none;
+      transition: all 0.18s;
+      white-space: nowrap;
+      background: white;
+    }
+    .btn-goto:hover { background: var(--green); color: white; transform: scale(1.04); }
+
+    .podium-goto {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 10px; padding: 7px 16px;
+      border: 1.5px solid var(--green);
+      color: var(--green);
+      border-radius: 20px;
+      font-size: 12px; font-weight: 700;
+      text-decoration: none;
+      transition: all 0.18s;
+      background: white;
+    }
+    .podium-goto:hover { background: var(--green); color: white; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <span class="header-logo">🌿</span>
+    <div>
+      <div class="header-title">올리브영 랭킹 대시보드</div>
+      <div class="header-sub" id="lastUpdated">마지막 업데이트: —</div>
+    </div>
+  </div>
+  <button class="btn-refresh" onclick="loadData()">
+    <span id="refreshIcon">↻</span> 새로고침
+  </button>
+</div>
+
+<!-- CATEGORY TABS -->
+<div class="categories">
+  <div class="tab active" data-cat="전체" onclick="selectCat(this)">전체</div>
+  <div class="tab" data-cat="스킨케어" onclick="selectCat(this)">스킨케어</div>
+  <div class="tab" data-cat="마스크팩" onclick="selectCat(this)">마스크팩</div>
+  <div class="tab" data-cat="선케어" onclick="selectCat(this)">선케어</div>
+  <div class="tab" data-cat="클렌징" onclick="selectCat(this)">클렌징</div>
+  <div class="tab" data-cat="메이크업" onclick="selectCat(this)">메이크업</div>
+  <div class="tab" data-cat="헤어" onclick="selectCat(this)">헤어</div>
+  <div class="tab" data-cat="바디/헬스" onclick="selectCat(this)">바디/헬스</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">집계 상품 수</div>
+      <div class="stat-value stat-total" id="statTotal">—</div>
+      <div class="stat-sub">전체 랭킹</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">신규 진입</div>
+      <div class="stat-value stat-new" id="statNew">—</div>
+      <div class="stat-sub">이번 주 NEW</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">최고 상승</div>
+      <div class="stat-value stat-up" id="statUpName">—</div>
+      <div class="stat-sub" id="statUpVal"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">최고 하락</div>
+      <div class="stat-value stat-down" id="statDownName">—</div>
+      <div class="stat-sub" id="statDownVal"></div>
+    </div>
+  </div>
+
+  <!-- PODIUM -->
+  <div class="podium-section">
+    <div class="section-title">🏆 TOP 3</div>
+    <div class="podium" id="podiumContainer"></div>
+  </div>
+
+  <!-- RANKING TABLE -->
+  <div class="table-section">
+    <div class="section-title">📋 전체 랭킹</div>
+    <div class="ranking-table">
+      <div class="table-header">
+        <span>순위</span>
+        <span>변동</span>
+        <span>상품</span>
+        <span>가격</span>
+        <span style="text-align:center">7일 추이</span>
+        <span></span>
+      </div>
+      <div id="rankingBody"></div>
+    </div>
+  </div>
+
+  <!-- TREND CHART -->
+  <div class="trend-section">
+    <div class="trend-card">
+      <div class="section-title">📈 TOP 10 랭킹 추이 (7일)</div>
+      <div class="trend-controls" id="trendControls"></div>
+      <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="date-label" id="dateLabels"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  데이터 출처: 올리브영 공식 랭킹 · 실제 데이터 수집은 <b>oliveyoung_scraper.py</b> 실행 후 <b>ranking_data.json</b> 파일로 자동 업데이트됩니다.
+</div>
+
+<script>
+// ── 실제 올리브영 랭킹 데이터 (2026-03-25 기준) ──────────────────────────────
+const IMG = "https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/400/10/0000/";
+const DETAIL = "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=";
+const SAMPLE_DATA = {
+  updatedAt: "2026-03-25 20:43",
+  products: [
+    { rank:1,  prevRank:2,  brand:"동아제약",       name:"[티동마켓/멜라닌양개선] 동아제약 색소침착 프로 크림제 40ml",               price:24700, category:"스킨케어", isNew:false, image:IMG+"0024/A00000024964909ko.jpg", url:DETAIL+"A000000249649", history:[4,3,2,2,1,2,1] },
+    { rank:2,  prevRank:1,  brand:"동아제약",       name:"[티동마켓/턴오버주기개선] 동아제약 색소침착 프로 액제 30ml",               price:21800, category:"스킨케어", isNew:false, image:IMG+"0024/A00000024964809ko.jpg", url:DETAIL+"A000000249648", history:[1,2,1,1,2,1,2] },
+    { rank:3,  prevRank:5,  brand:"디어달리아",     name:"[NEW/물먹광틴트] 디어달리아 드레시 글로우 틴트",                          price:13140, category:"메이크업", isNew:true,  image:IMG+"0024/A00000024961308ko.jpg", url:DETAIL+"A000000249613", history:[null,null,null,8,6,5,3] },
+    { rank:4,  prevRank:4,  brand:"메디힐",         name:"[3월 올영픽/1+1] 메디힐 마데카소사이드 흔적 리페어 세럼 40+40ml",         price:20400, category:"스킨케어", isNew:false, image:IMG+"0021/A00000021111984ko.png", url:DETAIL+"A000000211119", history:[3,5,4,4,3,4,4] },
+    { rank:5,  prevRank:3,  brand:"토리든",         name:"[1등마스크] 토리든 시트 마스크 10매 4종(수분/진정/브라이트닝/모공)",       price:15000, category:"마스크팩", isNew:false, image:IMG+"0015/A00000015875274ko.jpg", url:DETAIL+"A000000158752", history:[2,3,3,3,4,3,5] },
+    { rank:6,  prevRank:6,  brand:"메디힐",         name:"[3월 올영픽/15년연속 1위] 메디힐 에센셜 마스크팩 10+1/10매 기획 7종",     price:10000, category:"마스크팩", isNew:false, image:IMG+"0022/A000000223414103ko.jpg",url:DETAIL+"A000000223414", history:[6,6,5,6,6,6,6] },
+    { rank:7,  prevRank:9,  brand:"디어달리아",     name:"[NEW/이슬광글로스] 디어달리아 드레시 듀 립젤",                           price:13140, category:"메이크업", isNew:true,  image:IMG+"0024/A00000024961906ko.jpg", url:DETAIL+"A000000249619", history:[null,null,null,null,10,9,7] },
+    { rank:8,  prevRank:7,  brand:"PLAVE",          name:"플레이브 PLAVE 4th Mini Album [Caligo Pt.2] (ID PASS Ver.) 5종",         price:74500, category:"기타",    isNew:false, image:IMG+"0025/B00000025198501ko.png", url:DETAIL+"B000000251985", history:[5,6,7,7,7,7,8] },
+    { rank:9,  prevRank:8,  brand:"웨이크메이크",   name:"[헬로키티 블랙에디션] 웨이크메이크 소프트 쉬어 멀티 팔레트 13COLOR",     price:19600, category:"메이크업", isNew:false, image:IMG+"0020/A00000020910073ko.jpg", url:DETAIL+"A000000209100", history:[8,8,8,8,8,8,9] },
+    { rank:10, prevRank:13, brand:"라로슈포제",     name:"[3.25 하루특가/대용량] 라로슈포제 시카밤 B5+ 200ml+시카PRO마스크 기획",   price:50900, category:"스킨케어", isNew:false, image:IMG+"0024/A00000024768904ko.jpg", url:DETAIL+"A000000247689", history:[16,14,13,12,12,13,10] },
+    { rank:11, prevRank:11, brand:"메디힐",         name:"[3월 올영픽/1위패드] 메디힐 더마 패드 200매 대용량 기획 세트 7종",       price:27900, category:"스킨케어", isNew:false, image:IMG+"0017/A000000171427210ko.jpg",url:DETAIL+"A000000171427", history:[11,11,10,11,11,11,11] },
+    { rank:12, prevRank:10, brand:"달바",           name:"[NO.1 미스트세럼] 달바 퍼스트 스프레이 세럼 100ml 2개 기획",             price:32900, category:"스킨케어", isNew:false, image:IMG+"0023/A00000023272416ko.jpg", url:DETAIL+"A000000232724", history:[9,10,11,10,9,10,12] },
+    { rank:13, prevRank:null,brand:"더샘",          name:"[NEW/촉촉밀착커버] 더샘 커버 퍼펙션 트리플 팟 컨실러 글로우 3colors",    price:11800, category:"메이크업", isNew:true,  image:IMG+"0024/A00000024818508ko.jpg", url:DETAIL+"A000000248185", history:[null,null,null,null,null,null,13] },
+    { rank:14, prevRank:14, brand:"딜라이트 프로젝트",name:"[3월 올영픽] 딜라이트 프로젝트 베이글칩 먼작귀 에디션 8종 택1",         price:2430,  category:"바디/헬스",isNew:false, image:IMG+"0024/A00000024772861ko.jpg", url:DETAIL+"A000000247728", history:[14,14,14,14,14,14,14] },
+    { rank:15, prevRank:12, brand:"라운드랩",       name:"[3월올영픽/눈멍이파우치] 라운드랩 자작나무 수분 크림 80ml 더블 기획",    price:24900, category:"스킨케어", isNew:false, image:IMG+"0024/A00000024677609ko.jpg", url:DETAIL+"A000000246776", history:[10,11,12,13,12,12,15] },
+    { rank:16, prevRank:15, brand:"메디큐브",       name:"[키오프 하늘 PICK] 메디큐브 PDRN 핑크 콜라겐 글로우 젤리 미스트 더블기획",price:29700, category:"스킨케어", isNew:false, image:IMG+"0024/A00000024343314ko.jpg", url:DETAIL+"A000000243433", history:[15,15,16,15,15,15,16] },
+    { rank:17, prevRank:16, brand:"메디큐브",       name:"[3월단독/1등모공패드] 메디큐브 제로 모공 패드 150매 한정기획 (3종 택1)",  price:27900, category:"스킨케어", isNew:false, image:IMG+"0021/A00000021435871ko.jpg", url:DETAIL+"A000000214358", history:[16,16,17,16,17,16,17] },
+    { rank:18, prevRank:20, brand:"딜라이트 프로젝트",name:"딜라이트 프로젝트 단백질쉐이크 45g 8종 택1",                            price:3700,  category:"바디/헬스",isNew:false, image:IMG+"0020/A00000020816246ko.jpg", url:DETAIL+"A000000208162", history:[20,20,19,19,19,20,18] },
+    { rank:19, prevRank:18, brand:"웰라쥬",         name:"[카니PICK/속건조필수템] 웰라쥬 리얼 히알루로닉 블루 100 앰플 75ml 더블기획",price:29900,category:"스킨케어", isNew:false, image:IMG+"0023/A00000023524719ko.jpg", url:DETAIL+"A000000235247", history:[18,18,18,18,18,18,19] },
+    { rank:20, prevRank:null,brand:"디어달리아",    name:"[NEW/미지근벨벳] 디어달리아 드레시 벨벳 립 펜슬",                        price:10710, category:"메이크업", isNew:true,  image:IMG+"0024/A00000024967002ko.jpg", url:DETAIL+"A000000249670", history:[null,null,null,null,null,null,20] },
+  ]
+};
+
+// ── 브랜드 색상 (결정론적) ────────────────────────────────────────────────────
+const BRAND_PALETTE = ['#1A9E5C','#E85D8A','#3182CE','#C0841A','#7B61E8','#38B2AC','#E8703A','#5A6EDB','#E53E3E','#2C9E6E'];
+function getBrandColor(brand) {
+  let h = 0;
+  for (const c of brand) h = (h * 31 + c.charCodeAt(0)) & 0xFFFF;
+  return BRAND_PALETTE[h % BRAND_PALETTE.length];
+}
+
+// ── 상품 URL (실제 URL 없으면 검색 URL 사용) ─────────────────────────────────
+function getProductUrl(p) {
+  if (p.url) return p.url;
+  const q = encodeURIComponent(p.brand + ' ' + p.name);
+  return `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${q}`;
+}
+
+// ── 썸네일 HTML ──────────────────────────────────────────────────────────────
+function thumbHTML(p, size = 54) {
+  const color = getBrandColor(p.brand);
+  const initial = p.brand.charAt(0);
+  if (p.image) {
+    return `<div class="product-thumb" style="background:${color};width:${size}px;height:${size}px">
+      <img src="${p.image}" alt="${p.name}"
+           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;border-radius:inherit"
+           onerror="this.remove();this.parentNode&&(this.parentNode.querySelector('.thumb-fb').style.display='flex')">
+      <span class="thumb-fb" style="display:none;position:relative;z-index:1">${initial}</span>
+    </div>`;
+  }
+  return `<div class="product-thumb" style="background:${color};width:${size}px;height:${size}px">
+    <span style="position:relative;z-index:1">${initial}</span>
+  </div>`;
+}
+
+// ── 날짜 라벨 생성 (오늘부터 7일 전까지) ───────────────────────────────────
+function getDateLabels() {
+  const labels = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+  }
+  return labels;
+}
+
+// ── 변동 배지 HTML ──────────────────────────────────────────────────────────
+function changeBadge(curr, prev, isNew) {
+  if (isNew || prev === null) return '<span class="change-badge change-new">NEW</span>';
+  const diff = prev - curr; // 양수 = 순위 상승
+  if (diff > 0) return `<span class="change-badge change-up">▲${diff}</span>`;
+  if (diff < 0) return `<span class="change-badge change-down">▼${Math.abs(diff)}</span>`;
+  return `<span class="change-badge change-same">—</span>`;
+}
+
+// ── 스파크라인 SVG ──────────────────────────────────────────────────────────
+function sparklineSVG(history, maxRank = 20) {
+  const valid = history.filter(v => v !== null);
+  if (valid.length < 2) return '<svg class="sparkline-svg"></svg>';
+  const w = 90, h = 32, pad = 4;
+  const pts = history.map((v, i) => ({
+    x: pad + (i / (history.length - 1)) * (w - pad * 2),
+    y: v === null ? null : pad + ((v - 1) / (maxRank - 1)) * (h - pad * 2)
+  }));
+  // 색상: 마지막 rank가 첫 rank보다 작으면 (상승) 빨강, 아니면 파랑
+  const firstValid = history.find(v => v !== null);
+  const lastValid = [...history].reverse().find(v => v !== null);
+  const color = lastValid < firstValid ? '#E53E3E' : lastValid > firstValid ? '#3182CE' : '#A0ADB8';
+
+  let d = '';
+  let started = false;
+  for (const p of pts) {
+    if (p.y === null) { started = false; continue; }
+    d += (started ? ' L' : ' M') + ` ${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    started = true;
+  }
+  return `<svg class="sparkline-svg" viewBox="0 0 ${w} ${h}">
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.filter(p=>p.y!==null).map((p,i) => i === pts.length-1 || history[pts.indexOf(p)+1] === null ?
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="${color}"/>` : '').join('')}
+  </svg>`;
+}
+
+// ── 포디움 렌더 ──────────────────────────────────────────────────────────────
+function renderPodium(products) {
+  const top3 = products.filter(p => p.rank <= 3).sort((a,b) => a.rank - b.rank);
+  const medals = ['🥇','🥈','🥉'];
+  const bgClass = ['podium-bg-1','podium-bg-2','podium-bg-3'];
+  const order = [1, 0, 2];
+  const container = document.getElementById('podiumContainer');
+  container.innerHTML = order.map(i => {
+    const p = top3[i];
+    if (!p) return '';
+    const color = getBrandColor(p.brand);
+    const imgTag = p.image
+      ? `<img src="${p.image}" alt="${p.name}"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;"
+              onerror="this.remove()">`
+      : '';
+    return `<div class="podium-card rank-${p.rank} ${bgClass[i]}">
+      <div class="podium-medal">${medals[i]}</div>
+      <div class="podium-thumb" style="background:${color};position:relative;">${imgTag}<span style="position:relative;z-index:1">${p.brand.charAt(0)}</span></div>
+      <div class="podium-rank">RANK ${p.rank}</div>
+      <div class="podium-brand">${p.brand}</div>
+      <div class="podium-name">${p.name}</div>
+      <div class="podium-price">₩${p.price.toLocaleString()}</div>
+      <div class="podium-change">${changeBadge(p.rank, p.prevRank, p.isNew)}</div>
+      <div><a class="podium-goto" href="${getProductUrl(p)}" target="_blank">🔗 바로가기</a></div>
+    </div>`;
+  }).join('');
+}
+
+// ── 랭킹 테이블 렌더 ─────────────────────────────────────────────────────────
+function renderTable(products) {
+  const body = document.getElementById('rankingBody');
+  body.innerHTML = products.map(p => `
+    <div class="table-row" data-cat="${p.category}">
+      <span class="rank-num ${p.rank <= 3 ? 'top3' : ''}">${p.rank}</span>
+      <span>${changeBadge(p.rank, p.prevRank, p.isNew)}</span>
+      <div class="product-cell">
+        ${thumbHTML(p, 54)}
+        <div class="product-info">
+          <span class="product-brand">${p.brand}</span>
+          <span class="product-name">${p.name}${p.isNew ? '<span class="tag-new">NEW</span>' : ''}</span>
+          <span class="product-cat">${p.category}</span>
+        </div>
+      </div>
+      <span class="product-price">₩${p.price.toLocaleString()}</span>
+      <span class="sparkline-wrap">${sparklineSVG(p.history)}</span>
+      <span style="display:flex;justify-content:flex-end">
+        <a class="btn-goto" href="${getProductUrl(p)}" target="_blank">바로가기</a>
+      </span>
+    </div>
+  `).join('');
+}
+
+// ── 통계 렌더 ────────────────────────────────────────────────────────────────
+function renderStats(products) {
+  const newItems = products.filter(p => p.isNew);
+  const risen = products.filter(p => !p.isNew && p.prevRank !== null && p.prevRank > p.rank)
+    .sort((a,b) => (b.prevRank - b.rank) - (a.prevRank - a.rank));
+  const fallen = products.filter(p => !p.isNew && p.prevRank !== null && p.prevRank < p.rank)
+    .sort((a,b) => (b.rank - b.prevRank) - (a.rank - a.prevRank));
+
+  document.getElementById('statTotal').textContent = products.length;
+  document.getElementById('statNew').textContent = newItems.length + '개';
+  if (risen[0]) {
+    document.getElementById('statUpName').textContent = risen[0].brand;
+    document.getElementById('statUpVal').textContent = `▲${risen[0].prevRank - risen[0].rank}계단 상승 (${risen[0].rank}위)`;
+  }
+  if (fallen[0]) {
+    document.getElementById('statDownName').textContent = fallen[0].brand;
+    document.getElementById('statDownVal').textContent = `▼${fallen[0].rank - fallen[0].prevRank}계단 하락 (${fallen[0].rank}위)`;
+  }
+}
+
+// ── 트렌드 차트 ──────────────────────────────────────────────────────────────
+let trendChart = null;
+const CHART_COLORS = [
+  '#1A9E5C','#FF6B9D','#3182CE','#D69E2E','#9F7AEA',
+  '#38B2AC','#E53E3E','#ED8936','#667EEA','#48BB78'
+];
+
+function renderTrendChart(products) {
+  const top10 = products.slice(0, 10);
+  const labels = getDateLabels();
+  document.getElementById('dateLabels').textContent = '날짜: ' + labels.join(' → ');
+
+  // 버튼
+  const controls = document.getElementById('trendControls');
+  controls.innerHTML = top10.map((p, i) => `
+    <button class="trend-btn active" data-idx="${i}" onclick="toggleLine(this)"
+      style="border-color:${CHART_COLORS[i]};color:${CHART_COLORS[i]}">
+      ${p.rank}위 ${p.brand}
+    </button>`).join('');
+
+  const datasets = top10.map((p, i) => ({
+    label: `${p.rank}위 ${p.brand} - ${p.name}`,
+    data: p.history.map(v => v === null ? null : v),
+    borderColor: CHART_COLORS[i],
+    backgroundColor: CHART_COLORS[i] + '22',
+    tension: 0.35,
+    spanGaps: true,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    borderWidth: 2,
+  }));
+
+  if (trendChart) trendChart.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label.split(' - ')[0]}: ${ctx.parsed.y}위`,
+          }
+        }
+      },
+      scales: {
+        y: {
+          reverse: true,
+          min: 1,
+          ticks: { stepSize: 1, callback: v => v + '위' },
+          title: { display: true, text: '랭킹 순위 (낮을수록 상위)', color: '#718096' },
+          grid: { color: '#EDF2F7' }
+        },
+        x: { grid: { color: '#EDF2F7' } }
+      }
+    }
+  });
+}
+
+function toggleLine(btn) {
+  const idx = parseInt(btn.dataset.idx);
+  const ds = trendChart.data.datasets[idx];
+  ds.hidden = !ds.hidden;
+  btn.classList.toggle('active', !ds.hidden);
+  trendChart.update();
+}
+
+// ── 카테고리 필터 ────────────────────────────────────────────────────────────
+let currentCat = '전체';
+function selectCat(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentCat = el.dataset.cat;
+  filterTable();
+}
+function filterTable() {
+  document.querySelectorAll('.table-row').forEach(row => {
+    const show = currentCat === '전체' || row.dataset.cat === currentCat;
+    row.classList.toggle('hidden', !show);
+  });
+}
+
+// ── 데이터 로드 ──────────────────────────────────────────────────────────────
+function loadData() {
+  const icon = document.getElementById('refreshIcon');
+  icon.classList.add('spin');
+  fetch('ranking_data.json?t=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('no file'); return r.json(); })
+    .then(data => {
+      applyData(data);
+      icon.classList.remove('spin');
+    })
+    .catch(() => {
+      applyData(SAMPLE_DATA);
+      icon.classList.remove('spin');
+    });
+}
+
+function applyData(data) {
+  renderStats(data.products);
+  renderPodium(data.products);
+  renderTable(data.products);
+  renderTrendChart(data.products);
+  filterTable();
+  if (data.updatedAt) {
+    document.getElementById('lastUpdated').textContent = '마지막 업데이트: ' + data.updatedAt;
+  }
+}
+
+// 초기 로드
+loadData();
+</script>
+</body>
+</html>

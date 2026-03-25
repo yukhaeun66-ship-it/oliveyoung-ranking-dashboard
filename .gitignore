@@ -1,0 +1,5 @@
+ranking_data.json
+ranking_history.json
+__pycache__/
+*.pyc
+.DS_Store
